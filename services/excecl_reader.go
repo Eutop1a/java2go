@@ -38,40 +38,41 @@ func (er *ExcelReader) ReadExcel() ([]map[string]interface{}, error) {
 	for _, row := range rows[1:] {
 		r := make(map[string]interface{})
 		if len(row) > 1 {
-			r["topic"] = row[1]
+			r["topic"] = row[0]
 		}
 		if len(row) > 2 {
-			r["topic_material_id"] = row[2]
+			r["topic_material_id"] = row[1]
 		}
 		if len(row) > 3 {
-			r["answer"] = row[3]
+			r["answer"] = row[2]
 		}
 		if len(row) > 4 {
-			r["topic_type"] = row[4]
+			r["topic_type"] = row[3]
 		}
 		if len(row) > 5 {
-			score, err := strconv.ParseFloat(row[5], 64)
+			score, err := strconv.ParseFloat(row[4], 64)
 			if err == nil {
 				r["score"] = score
 			}
 		}
 		if len(row) > 6 {
-			difficulty, err := strconv.ParseFloat(row[6], 64)
+			difficulty, err := strconv.ParseInt(row[5], 10, 64)
 			if err == nil {
 				r["difficulty"] = difficulty
 			}
 		}
 		if len(row) > 7 {
-			r["chapter_1"] = row[7]
+			r["chapter_1"] = row[6]
 		}
 		if len(row) > 8 {
-			r["chapter_2"] = row[8]
+			r["chapter_2"] = row[7]
 		}
 		if len(row) > 9 {
-			r["label_1"] = row[9]
+			r["label_1"] = row[8]
 		}
-		if len(row) > 10 {
-			r["label_2"] = row[10]
+		if len(row) >= 10 {
+			r["label_2"] = row[9]
+			r["update_time"] = row[10]
 		}
 		result = append(result, r)
 	}

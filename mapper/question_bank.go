@@ -66,6 +66,7 @@ func (m *QuestionBankMapper) GetQuestionBankById(id int) ([]entity.QuestionBank,
 
 // UpdateSingleQuestionBank 更新单条题库记录
 func (m *QuestionBankMapper) UpdateSingleQuestionBank(questionBank *entity.QuestionBank) (int64, error) {
+	//result := m.db.Model(questionBank).Where("id =?", questionBank.ID).Updates(questionBank)
 	result := m.db.Model(questionBank).Updates(questionBank)
 	return result.RowsAffected, result.Error
 }

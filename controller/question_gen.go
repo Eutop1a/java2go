@@ -2,8 +2,11 @@ package controller
 
 import (
 	"fmt"
+	"github.com/gin-contrib/sessions"
 	"java2go/entity"
 	"java2go/mapper"
+	"java2go/services"
+	"java2go/utils"
 
 	"net/http"
 	"os"
@@ -11,39 +14,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 )
 
-// GenWord 表示生成 Word 文件的服务
-type GenWord struct{}
-
-// GeneticIteration 表示遗传算法迭代服务
-type GeneticIteration struct {
-	IterationsNum    int
-	QuestionBankList []entity.QuestionBank
-	TargetDifficulty float64
-	TKTCount         int
-	XZTCount         int
-	PDTCount         int
-	JDTCount         int
-	TKTCurrent       []entity.QuestionBank
-	XZTCurrent       []entity.QuestionBank
-	PDTCurrent       []entity.QuestionBank
-	JDTCurrent       []entity.QuestionBank
-	Variance         float64
-}
-
-// RandomSelectTopic 表示随机选题服务
-type RandomSelectTopic struct{}
-
-// WordExport 表示 Word 导出服务
-type WordExport struct {
-	Map map[string]string
-}
-
-var db *gorm.DB
-
-// 处理 /RandomSelect 请求
+// 处理 /randomSelect 请求
 func RandomSelect(c *gin.Context) {
 	var payload map[string]interface{}
 	if err := c.ShouldBindJSON(&payload); err != nil {
@@ -60,18 +33,33 @@ func RandomSelect(c *gin.Context) {
 	averageDifficulty := getFloat64(payload, "averageDifficulty")
 
 	var randomQuestionBankList []entity.QuestionBank
-	mapper.DB.Where("id NOT IN ? AND topic_type IN ?", selectedTopicIds, generateRange).Find(&randomQuestionBankList)
+	query := mapper.DB
+
+	if len(selectedTopicIds) > 0 {
+		query = query.Where("id NOT IN ?", selectedTopicIds)
+	}
+	if len(generateRange) > 0 {
+		query = query.Where("label_1 IN ?", generateRange)
+	}
+
+	result := query.Find(&randomQuestionBankList)
+	if result.Error != nil {
+		fmt.Printf("查询出错: %v\n", result.Error)
+		return
+	}
+
+	//var randomQuestionBankList []entity.QuestionBank
+	//mapper.DB.Where("id NOT IN ? AND topic_type IN ?", selectedTopicIds, generateRange).Find(&randomQuestionBankList)
 
 	TKTRandomList := filterQuestions(randomQuestionBankList, "填空题")
 	XZTRandomList := filterQuestions(randomQuestionBankList, "选择题")
 	PDTRandomList := filterQuestions(randomQuestionBankList, "判断题")
 	JDTRandomList := filterQuestions(randomQuestionBankList, "程序设计题", "程序阅读题")
 
-	randomSelectTopic := RandomSelectTopic{}
-	TKTList := randomSelectTopic.randomSelectTopic(TKTRandomList, averageDifficulty, TKTCount)
-	XZTList := randomSelectTopic.randomSelectTopic(XZTRandomList, averageDifficulty, XZTCount)
-	PDTList := randomSelectTopic.randomSelectTopic(PDTRandomList, averageDifficulty, PDTCount)
-	JDTList := randomSelectTopic.randomSelectTopic(JDTRandomList, averageDifficulty, JDTCount)
+	TKTList := services.RandomSelectTopic(TKTRandomList, averageDifficulty, TKTCount)
+	XZTList := services.RandomSelectTopic(XZTRandomList, averageDifficulty, XZTCount)
+	PDTList := services.RandomSelectTopic(PDTRandomList, averageDifficulty, PDTCount)
+	JDTList := services.RandomSelectTopic(JDTRandomList, averageDifficulty, JDTCount)
 
 	response := map[string]interface{}{
 		"TKTList": TKTList,
@@ -79,7 +67,8 @@ func RandomSelect(c *gin.Context) {
 		"PDTList": PDTList,
 		"JDTList": JDTList,
 	}
-	c.JSON(http.StatusOK, response)
+	resp := utils.Make200Resp("Success", response)
+	c.String(http.StatusOK, resp)
 }
 
 // 处理 /geneticSelect 请求
@@ -100,33 +89,41 @@ func GeneticSelect(c *gin.Context) {
 	iterationsNum := int(getFloat64(payload, "iterationsNum"))
 
 	var randomQuestionBankList []entity.QuestionBank
-	mapper.DB.Where("id NOT IN ? AND topic_type IN ?", selectedTopicIds, generateRange).Find(&randomQuestionBankList)
+	query := mapper.DB
 
-	gi := GeneticIteration{
-		IterationsNum:    iterationsNum,
-		QuestionBankList: randomQuestionBankList,
-		TargetDifficulty: targetDifficulty,
-		TKTCount:         TKTCount,
-		XZTCount:         XZTCount,
-		PDTCount:         PDTCount,
-		JDTCount:         JDTCount,
+	if len(selectedTopicIds) > 0 {
+		query = query.Where("id NOT IN ?", selectedTopicIds)
 	}
-	gi.run()
+	if len(generateRange) > 0 {
+		query = query.Where("label_1 IN ?", generateRange)
+	}
+
+	result := query.Find(&randomQuestionBankList)
+	if result.Error != nil {
+		fmt.Printf("查询出错: %v\n", result.Error)
+		return
+	}
+
+	genIter := services.NewGeneticIteration(iterationsNum, randomQuestionBankList, targetDifficulty, TKTCount, XZTCount, PDTCount, JDTCount)
+	genIter.Run()
 
 	response := map[string]interface{}{
-		"TKTList":  gi.TKTCurrent,
-		"XZTList":  gi.XZTCurrent,
-		"PDTList":  gi.PDTCurrent,
-		"JDTList":  gi.JDTCurrent,
-		"variance": gi.Variance,
+		"TKTList":  genIter.TKTCurrent,
+		"XZTList":  genIter.XZTCurrent,
+		"PDTList":  genIter.PDTCurrent,
+		"JDTList":  genIter.JDTCurrent,
+		"variance": genIter.Variance,
 	}
-	c.JSON(http.StatusOK, response)
+	resp := utils.Make200Resp("Success", response)
+	c.String(http.StatusOK, resp)
 }
 
 // 处理 /questionGen 请求
 func QuestionGen(c *gin.Context) {
-	username := c.GetHeader("username")
-	if username == "" {
+	session := sessions.Default(c)
+	username, ok := session.Get("username").(string)
+	fmt.Println("username: ", username)
+	if !ok || username == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Username is missing"})
 		return
 	}
@@ -150,20 +147,23 @@ func QuestionGen(c *gin.Context) {
 		return
 	}
 
-	genWord := GenWord{}
-	genWord.genWordTest(questionBanks, testPaperName, username)
+	wE := services.NewWordGenerator()
+	str, _ := wE.GenerateTestPaper(questionBanks, testPaperName, username)
+	fmt.Println(str)
 
 	response := map[string]interface{}{
 		"status":  200,
 		"message": "Success",
 	}
-	c.JSON(http.StatusOK, response)
+	c.String(http.StatusOK, utils.Make200Resp("Success", response))
 }
 
 // 处理 /questionGen2 请求
 func QuestionGen2(c *gin.Context) {
-	username := c.GetHeader("username")
-	if username == "" {
+	session := sessions.Default(c)
+	username, ok := session.Get("username").(string)
+	fmt.Println("username: ", username)
+	if !ok || username == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Username is missing"})
 		return
 	}
@@ -193,25 +193,25 @@ func QuestionGen2(c *gin.Context) {
 	for _, q := range questionBanks {
 		totalScore += q.Score
 		totalCount++
-		contents = fmt.Sprintf("%s%d、（本题%d分）%s\r\r", contents, totalCount, q.Score, q.Topic)
+		scoreStr := formatScore(q.Score)
+		contents = fmt.Sprintf("%s%d、（本题%s分）%s\r\r", contents, totalCount, scoreStr, q.Topic)
 	}
 
 	mapData := map[string]string{
-		"total_score": fmt.Sprintf("%d", totalScore),
+		"total_score": fmt.Sprintf("%s", formatScore(totalScore)),
 		"total_count": fmt.Sprintf("%d", totalCount),
 		"contents":    contents,
 	}
-
-	we := WordExport{Map: mapData}
-	file := we.exportTestPaper(1)
+	wE := services.NewWordExporter(mapData)
+	file, _ := wE.ExportTestPaper(1)
 	logHistory(questionBanks, testPaperName, username, file)
 	downloadFile(c, file)
 }
 
 // 处理 /getFile 请求
 func GetFile(c *gin.Context) {
-	genWord := GenWord{}
-	file := genWord.getFile()
+	genWord := services.NewWordGenerator()
+	file := genWord.GetFile()
 	downloadFile(c, file)
 }
 
@@ -356,32 +356,4 @@ func getString(m map[string]interface{}, key string) string {
 		return val
 	}
 	return ""
-}
-
-// 随机选题方法
-func (r *RandomSelectTopic) randomSelectTopic(questions []entity.QuestionBank, difficulty float64, count int) []entity.QuestionBank {
-	// 这里需要实现具体的随机选题逻辑
-	return []entity.QuestionBank{}
-}
-
-// 遗传算法迭代方法
-func (gi *GeneticIteration) run() {
-	// 这里需要实现具体的遗传算法迭代逻辑
-}
-
-// 生成 Word 文件方法
-func (gw *GenWord) genWordTest(questionBanks []entity.QuestionBank, testPaperName, username string) {
-	// 这里需要实现具体的生成 Word 文件逻辑
-}
-
-// 获取文件方法
-func (gw *GenWord) getFile() *os.File {
-	// 这里需要实现具体的获取文件逻辑
-	return nil
-}
-
-// 导出试卷方法
-func (we *WordExport) exportTestPaper(num int) *os.File {
-	// 这里需要实现具体的导出试卷逻辑
-	return nil
 }

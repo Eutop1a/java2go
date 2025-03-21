@@ -1,6 +1,7 @@
 package services
 
 import (
+	"java2go/entity"
 	"math"
 	"math/rand"
 	"time"
@@ -9,33 +10,33 @@ import (
 // GeneticIteration 遗传迭代算法结构体
 type GeneticIteration struct {
 	iterationsNum   int
-	variance        []float64
+	Variance        []float64
 	targetDifficult float64
-	TKTCurrent      []QuestionBank
-	XZTCurrent      []QuestionBank
-	PDTCurrent      []QuestionBank
-	JDTCurrent      []QuestionBank
-	TKTLibrary      []QuestionBank
-	XZTLibrary      []QuestionBank
-	PDTLibrary      []QuestionBank
-	JDTLibrary      []QuestionBank
+	TKTCurrent      []entity.QuestionBank
+	XZTCurrent      []entity.QuestionBank
+	PDTCurrent      []entity.QuestionBank
+	JDTCurrent      []entity.QuestionBank
+	TKTLibrary      []entity.QuestionBank
+	XZTLibrary      []entity.QuestionBank
+	PDTLibrary      []entity.QuestionBank
+	JDTLibrary      []entity.QuestionBank
 }
 
 // NewGeneticIteration 构造函数
-func NewGeneticIteration(iterationsNum int, questionList []QuestionBank, targetDifficult float64, TKTCount, XZTCount, PDTCount, JDTCount int) *GeneticIteration {
+func NewGeneticIteration(iterationsNum int, questionList []entity.QuestionBank, targetDifficult float64, TKTCount, XZTCount, PDTCount, JDTCount int) *GeneticIteration {
 	rand.Seed(time.Now().UnixNano())
 	gi := &GeneticIteration{
 		iterationsNum:   iterationsNum,
 		targetDifficult: targetDifficult,
-		variance:        make([]float64, 0),
-		TKTLibrary:      make([]QuestionBank, 0),
-		XZTLibrary:      make([]QuestionBank, 0),
-		PDTLibrary:      make([]QuestionBank, 0),
-		JDTLibrary:      make([]QuestionBank, 0),
-		TKTCurrent:      make([]QuestionBank, 0),
-		XZTCurrent:      make([]QuestionBank, 0),
-		PDTCurrent:      make([]QuestionBank, 0),
-		JDTCurrent:      make([]QuestionBank, 0),
+		Variance:        make([]float64, 0),
+		TKTLibrary:      make([]entity.QuestionBank, 0),
+		XZTLibrary:      make([]entity.QuestionBank, 0),
+		PDTLibrary:      make([]entity.QuestionBank, 0),
+		JDTLibrary:      make([]entity.QuestionBank, 0),
+		TKTCurrent:      make([]entity.QuestionBank, 0),
+		XZTCurrent:      make([]entity.QuestionBank, 0),
+		PDTCurrent:      make([]entity.QuestionBank, 0),
+		JDTCurrent:      make([]entity.QuestionBank, 0),
 	}
 
 	// 分门别类，先放到未选列表里
@@ -62,7 +63,7 @@ func NewGeneticIteration(iterationsNum int, questionList []QuestionBank, targetD
 }
 
 // initCurrentList 初始化已选列表
-func (gi *GeneticIteration) initCurrentList(library *[]QuestionBank, current *[]QuestionBank, count int) {
+func (gi *GeneticIteration) initCurrentList(library *[]entity.QuestionBank, current *[]entity.QuestionBank, count int) {
 	for count > 0 && len(*library) > 0 {
 		index := rand.Intn(len(*library))
 		*current = append(*current, (*library)[index])
@@ -86,7 +87,7 @@ func (gi *GeneticIteration) Run() {
 			gi.singleIteration(&gi.JDTLibrary, &gi.JDTCurrent)
 		}
 		res := gi.calcVariance()
-		gi.variance = append(gi.variance, res)
+		gi.Variance = append(gi.Variance, res)
 		gi.iterationsNum--
 	}
 }
@@ -95,29 +96,29 @@ func (gi *GeneticIteration) Run() {
 func (gi *GeneticIteration) calcVariance() float64 {
 	sum := 0.0
 	for _, q := range gi.TKTCurrent {
-		sum += math.Pow(q.Difficulty-gi.targetDifficult, 2)
+		sum += math.Pow(float64(q.Difficulty)-gi.targetDifficult, 2)
 	}
 	for _, q := range gi.XZTCurrent {
-		sum += math.Pow(q.Difficulty-gi.targetDifficult, 2)
+		sum += math.Pow(float64(q.Difficulty)-gi.targetDifficult, 2)
 	}
 	for _, q := range gi.PDTCurrent {
-		sum += math.Pow(q.Difficulty-gi.targetDifficult, 2)
+		sum += math.Pow(float64(q.Difficulty)-gi.targetDifficult, 2)
 	}
 	for _, q := range gi.JDTCurrent {
-		sum += math.Pow(q.Difficulty-gi.targetDifficult, 2)
+		sum += math.Pow(float64(q.Difficulty)-gi.targetDifficult, 2)
 	}
 	n := len(gi.TKTCurrent) + len(gi.XZTCurrent) + len(gi.PDTCurrent) + len(gi.JDTCurrent)
 	return sum / float64(n)
 }
 
 // singleIteration 单次迭代
-func (gi *GeneticIteration) singleIteration(library *[]QuestionBank, current *[]QuestionBank) {
+func (gi *GeneticIteration) singleIteration(library *[]entity.QuestionBank, current *[]entity.QuestionBank) {
 	if len(*library) > 0 && len(*current) > 0 {
 		index1 := rand.Intn(len(*library))
 		index2 := rand.Intn(len(*current))
 		(*library)[index1], (*current)[index2] = (*current)[index2], (*library)[index1]
 		v := gi.calcVariance()
-		if len(gi.variance) > 0 && v > gi.variance[len(gi.variance)-1] {
+		if len(gi.Variance) > 0 && v > gi.Variance[len(gi.Variance)-1] {
 			(*library)[index1], (*current)[index2] = (*current)[index2], (*library)[index1]
 		}
 	}

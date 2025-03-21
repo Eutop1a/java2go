@@ -4,6 +4,8 @@ import (
 	"crypto/md5"
 	"fmt"
 	"html/template"
+	"java2go/entity"
+	"java2go/mapper"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -11,81 +13,34 @@ import (
 	"time"
 )
 
-// ================== 领域对象定义 ==================
-type QuestionBank struct {
-	ID              int
-	Topic           string
-	TopicMaterialID int
-	Answer          string
-	TopicType       string
-	Score           float64
-	Difficulty      float64
-	Chapter1        string
-	Chapter2        string
-	Label1          string
-	Label2          string
-}
+type WordGenerator struct{}
 
-type TestPaperGenHistory struct {
-	TestPaperUID      string
-	TestPaperName     string
-	QuestionCount     int
-	AverageDifficulty float64
-	UpdateTime        time.Time
-	Username          string
-}
-
-type QuestionGenHistory struct {
-	TestPaperUID    string
-	TestPaperName   string
-	QuestionBankID  int
-	Topic           string
-	TopicMaterialID int
-	Answer          string
-	TopicType       string
-	Score           float64
-	Difficulty      float64
-	Chapter1        string
-	Chapter2        string
-	Label1          string
-	Label2          string
-	UpdateTime      time.Time
-}
-
-// ================== 核心业务逻辑 ==================
-type WordGenerator struct {
-	DBRepository DBRepository // 数据库操作接口
-}
-
-func NewWordGenerator(repo DBRepository) *WordGenerator {
-	return &WordGenerator{DBRepository: repo}
+func NewWordGenerator() *WordGenerator {
+	return &WordGenerator{}
 }
 
 func (wg *WordGenerator) GenerateTestPaper(
-	questions []QuestionBank,
+	questions []entity.QuestionBank,
 	paperName string,
 	username string,
 ) (string, error) {
-
 	// 生成临时文件
 	filePath, err := wg.generateWordFile(questions, paperName)
 	if err != nil {
 		return "", fmt.Errorf("生成文档失败: %w", err)
 	}
-
 	// 记录生成历史
 	if err := wg.logGenerationHistory(questions, paperName, username); err != nil {
 		os.Remove(filePath) // 清理文件
 		return "", fmt.Errorf("记录历史失败: %w", err)
 	}
-
 	return filePath, nil
 }
 
 // ================== 模板处理逻辑 ==================
 const templateName = "microcomputer_template.tmpl"
 
-func (wg *WordGenerator) generateWordFile(questions []QuestionBank, paperName string) (string, error) {
+func (wg *WordGenerator) generateWordFile(questions []entity.QuestionBank, paperName string) (string, error) {
 	// 准备模板数据
 	tmplData := struct {
 		TotalScore  string
@@ -123,9 +78,19 @@ func (wg *WordGenerator) generateWordFile(questions []QuestionBank, paperName st
 	return tmpFile.Name(), nil
 }
 
+// 定义一个全局变量来模拟 Java 中的静态变量
+var resultFile *os.File
+
+func (wg *WordGenerator) GetFile() *os.File {
+	if resultFile != nil {
+		return resultFile
+	}
+	return nil
+}
+
 // ================== 历史记录处理 ==================
 func (wg *WordGenerator) logGenerationHistory(
-	questions []QuestionBank,
+	questions []entity.QuestionBank,
 	paperName string,
 	username string,
 ) error {
@@ -133,7 +98,7 @@ func (wg *WordGenerator) logGenerationHistory(
 	paperUID := generatePaperUID(now)
 
 	// 试卷历史
-	paperHistory := TestPaperGenHistory{
+	paperHistory := entity.TestPaperGenHistory{
 		TestPaperUID:      paperUID,
 		TestPaperName:     paperName,
 		QuestionCount:     len(questions),
@@ -143,9 +108,9 @@ func (wg *WordGenerator) logGenerationHistory(
 	}
 
 	// 题目历史
-	questionHistories := make([]QuestionGenHistory, len(questions))
+	questionHistories := make([]entity.QuestionGenHistory, len(questions))
 	for i, q := range questions {
-		questionHistories[i] = QuestionGenHistory{
+		questionHistories[i] = entity.QuestionGenHistory{
 			TestPaperUID:    paperUID,
 			TestPaperName:   paperName,
 			QuestionBankID:  q.ID,
@@ -162,14 +127,19 @@ func (wg *WordGenerator) logGenerationHistory(
 			UpdateTime:      now,
 		}
 	}
+	inter1 := mapper.NewQuestionGenHistoryMapper()
+	insertCount1, err := inter1.InsertQuestionGenHistories(questionHistories)
+	if err != nil {
+		return err
+	}
 
-	// 数据库事务操作
-	return wg.DBRepository.Transaction(func(repo DBRepository) error {
-		if err := repo.CreateTestPaperHistory(paperHistory); err != nil {
-			return err
-		}
-		return repo.BatchCreateQuestionHistories(questionHistories)
-	})
+	inter2 := mapper.NewTestPaperGenHistoryGormMapper()
+	insertCount2, err := inter2.InsertTestPaperGenHistory(paperHistory)
+	if err != nil {
+		return err
+	}
+	fmt.Println(insertCount1, "_", insertCount2)
+	return nil
 }
 
 // ================== 工具函数 ==================
@@ -185,23 +155,16 @@ func templateDir() string {
 }
 
 func generatePaperUID(t time.Time) string {
-	hash := md5.Sum([]byte(fmt.Sprintf("%d-%d", t.UnixNano(), rand.Intn(1000))))
+	hash := md5.Sum([]byte(fmt.Sprintf("%d_%d", t.UnixNano(), rand.Intn(1000))))
 	return fmt.Sprintf("%x", hash)
 }
 
-func calculateAverageDifficulty(questions []QuestionBank) float64 {
-	sum := 0.0
+func calculateAverageDifficulty(questions []entity.QuestionBank) float64 {
+	var sum int
 	for _, q := range questions {
 		sum += q.Difficulty
 	}
-	return sum / float64(len(questions))
-}
-
-// ================== 数据库接口定义 ==================
-type DBRepository interface {
-	Transaction(func(DBRepository) error) error
-	CreateTestPaperHistory(TestPaperGenHistory) error
-	BatchCreateQuestionHistories([]QuestionGenHistory) error
+	return float64(sum) / float64(len(questions))
 }
 
 // ================== 使用示例 ==================

@@ -12,8 +12,8 @@ type TestPaperGenHistoryGormMapper struct {
 }
 
 // NewTestPaperGenHistoryGormMapper 创建测试试卷生成历史 GORM 映射器实例
-func NewTestPaperGenHistoryGormMapper() (*TestPaperGenHistoryGormMapper, error) {
-	return &TestPaperGenHistoryGormMapper{db: DB}, nil
+func NewTestPaperGenHistoryGormMapper() *TestPaperGenHistoryGormMapper {
+	return &TestPaperGenHistoryGormMapper{db: DB}
 }
 
 // InsertTestPaperGenHistory 插入测试试卷生成历史记录

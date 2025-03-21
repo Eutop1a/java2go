@@ -6,6 +6,7 @@ import (
 	"java2go/mapper"
 	"java2go/utils"
 	"log"
+	"net/http"
 	"time"
 )
 
@@ -18,7 +19,7 @@ type TestPaperGenHistoryMapper interface {
 	DeleteTestPaperGenHistoryByTestPaperUid(testPaperUID string) (int64, error)
 }
 
-var testMapper, _ = mapper.NewTestPaperGenHistoryGormMapper()
+var testMapper = mapper.NewTestPaperGenHistoryGormMapper()
 
 func GetAllTestPaperGenHistory(c *gin.Context) {
 	info, err := testMapper.QueryAllTestPaperGenHistory()
@@ -26,5 +27,6 @@ func GetAllTestPaperGenHistory(c *gin.Context) {
 		log.Println(err)
 		utils.Make500Resp(err.Error())
 	}
-	utils.Make200Resp("successfully get all test paper gen history", info)
+	resp := utils.Make200Resp("successfully get all test paper gen history", info)
+	c.String(http.StatusOK, resp)
 }

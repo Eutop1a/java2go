@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"java2go/entity"
 	"java2go/mapper"
+	"java2go/services"
 	"java2go/utils"
+	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -15,7 +17,8 @@ func GetQuestionGenHistoriesByTestPaperUid(c *gin.Context) {
 	testPaperUid := c.Query("test_paper_uid")
 	var questionGenHistories []entity.QuestionGenHistory
 	mapper.DB.Where("test_paper_uid = ?", testPaperUid).Find(&questionGenHistories)
-	utils.Make200Resp("Success", questionGenHistories)
+	resp := utils.Make200Resp("Success", questionGenHistories)
+	c.String(http.StatusOK, resp)
 }
 
 // 处理 /deleteQuestionGenHistoryByTestPaperUid 请求
@@ -29,7 +32,8 @@ func DeleteQuestionGenHistoryByTestPaperUid(c *gin.Context) {
 		"delQuestionCount":  delQuestionCount,
 		"delTestPaperCount": delTestPaperCount,
 	}
-	utils.Make200Resp("Success", response)
+	resp := utils.Make200Resp("Success", response)
+	c.String(http.StatusOK, resp)
 }
 
 // 处理 /updateQuestionGenHistory 请求
@@ -88,7 +92,8 @@ func UpdateQuestionGenHistory(c *gin.Context) {
 	// 插入新的
 	insertRes := mapper.DB.Create(&questionGenHistories)
 
-	utils.Make200Resp("Success", updateRes.RowsAffected+deleteRes.RowsAffected+insertRes.RowsAffected)
+	resp := utils.Make200Resp("Success", updateRes.RowsAffected+deleteRes.RowsAffected+insertRes.RowsAffected)
+	c.String(http.StatusOK, resp)
 }
 
 // 处理 /reExportTestPaper 请求
@@ -110,17 +115,21 @@ func ReExportTestPaper(c *gin.Context) {
 	for _, q := range questionBanks {
 		totalScore += q.Score
 		totalCount++
-		contents = fmt.Sprintf("%s%d、（本题%d分）%s\r\r", contents, totalCount, q.Score, q.Topic)
+		scoreStr := formatScore(q.Score)
+		contents = fmt.Sprintf("%s%d、（本题%s分）%s\r\r", contents, totalCount, scoreStr, q.Topic)
 	}
 
 	mapData := map[string]string{
-		"total_score": fmt.Sprintf("%d", totalScore),
+		"total_score": fmt.Sprintf("%s", formatScore(totalScore)),
 		"total_count": fmt.Sprintf("%d", totalCount),
 		"contents":    contents,
 	}
-
-	we := WordExport{Map: mapData}
-	file := we.exportTestPaper(1)
+	we := services.NewWordExporter(mapData)
+	file, err := we.ExportTestPaper(1)
+	if err != nil {
+		c.String(http.StatusInternalServerError, err.Error())
+		return
+	}
 	downloadFile(c, file)
 }
 
@@ -153,7 +162,15 @@ func ExportAnswer(c *gin.Context) {
 		"contents":    contents,
 	}
 
-	we := WordExport{Map: mapData}
-	file := we.exportTestPaper(2)
+	we := services.NewWordExporter(mapData)
+	file, _ := we.ExportTestPaper(2)
 	downloadFile(c, file)
+}
+
+// 格式化分数输出
+func formatScore(score float64) string {
+	if score == float64(int(score)) {
+		return fmt.Sprintf("%d", int(score))
+	}
+	return fmt.Sprintf("%.1f", score)
 }

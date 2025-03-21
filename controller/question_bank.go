@@ -1,14 +1,15 @@
 package controller
 
 import (
+	"fmt"
 	"java2go/entity"
 	"java2go/mapper"
+	"java2go/services"
 	"java2go/utils"
 	"net/http"
 	"strconv"
 	"time"
 
-	"github.com/360EntSecGroup-Skylar/excelize"
 	"github.com/gin-gonic/gin"
 )
 
@@ -74,15 +75,43 @@ func (c *QuestionBankController) SearchQuestionByTopic(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, utils.Make200Resp(c.default200Resp, questions))
 }
 
+type QuestionBank struct {
+	ID              string    `json:"id"`
+	Topic           string    `json:"topic"`
+	TopicMaterialID int       `json:"topic_material_id"`
+	Answer          string    `json:"answer"`
+	TopicType       string    `json:"topic_type"`
+	Score           float64   `json:"score"`
+	Difficulty      string    `json:"difficulty"`
+	Chapter1        string    `json:"chapter_1"`
+	Chapter2        string    `json:"chapter_2"`
+	Label1          string    `json:"label_1"`
+	Label2          string    `json:"label_2"`
+	UpdateTime      time.Time `json:"update_time"`
+}
+
 // InsertSingleQuestionBank 插入单条问题银行记录
 func (c *QuestionBankController) InsertSingleQuestionBank(ctx *gin.Context) {
-	var questionBank entity.QuestionBank
+	var questionBank QuestionBank
 	if err := ctx.BindJSON(&questionBank); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	questionBank.UpdateTime = time.Now()
-	commitStatus, _ := c.mapper.InsertSingleQuestionBank(&questionBank)
+	diff, _ := strconv.Atoi(questionBank.Difficulty)
+	commitStatus, _ := c.mapper.InsertSingleQuestionBank(&entity.QuestionBank{
+		Topic:           questionBank.Topic,
+		TopicMaterialID: questionBank.TopicMaterialID,
+		Answer:          questionBank.Answer,
+		TopicType:       questionBank.TopicType,
+		Score:           questionBank.Score,
+		Difficulty:      diff,
+		Chapter1:        questionBank.Chapter1,
+		Chapter2:        questionBank.Chapter2,
+		Label1:          questionBank.Label1,
+		Label2:          questionBank.Label2,
+		UpdateTime:      questionBank.UpdateTime,
+	})
 	retJson := map[string]interface{}{
 		"insertStatus": commitStatus,
 		"insertObject": questionBank,
@@ -112,13 +141,29 @@ func (c *QuestionBankController) GetQuestionBankById(ctx *gin.Context) {
 
 // UpdateQuestionBankById 根据 ID 更新问题银行记录
 func (c *QuestionBankController) UpdateQuestionBankById(ctx *gin.Context) {
-	var questionBank entity.QuestionBank
+	var questionBank QuestionBank
 	if err := ctx.BindJSON(&questionBank); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		fmt.Println(err)
 		return
 	}
 	questionBank.UpdateTime = time.Now()
-	updateStatus, _ := c.mapper.UpdateSingleQuestionBank(&questionBank)
+	diff, _ := strconv.Atoi(questionBank.Difficulty)
+	id, _ := strconv.Atoi(questionBank.ID)
+	updateStatus, _ := c.mapper.UpdateSingleQuestionBank(&entity.QuestionBank{
+		ID:              id,
+		Topic:           questionBank.Topic,
+		TopicMaterialID: questionBank.TopicMaterialID,
+		Answer:          questionBank.Answer,
+		TopicType:       questionBank.TopicType,
+		Score:           questionBank.Score,
+		Difficulty:      diff,
+		Chapter1:        questionBank.Chapter1,
+		Chapter2:        questionBank.Chapter2,
+		Label1:          questionBank.Label1,
+		Label2:          questionBank.Label2,
+		UpdateTime:      questionBank.UpdateTime,
+	})
 	retJson := map[string]interface{}{
 		"updateStatus": updateStatus,
 		"updateObject": questionBank,
@@ -145,7 +190,6 @@ func (c *QuestionBankController) UploadFile(ctx *gin.Context) {
 			deleteCount += int(num)
 		}
 	}
-
 	src, err := file.Open()
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -153,34 +197,25 @@ func (c *QuestionBankController) UploadFile(ctx *gin.Context) {
 	}
 	defer src.Close()
 
-	f, err := excelize.OpenReader(src)
+	eR := services.NewExcelReader(src)
+	questionBanMap, err := eR.ReadExcel()
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	//defer f.Close()
 
-	rows := f.GetRows(f.GetSheetName(0))
-	//if err != nil {
-	//	ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-	//	return
-	//}
-
-	for i, row := range rows {
-		if i == 0 {
-			continue
-		}
+	for _, v := range questionBanMap {
 		questionBank := &entity.QuestionBank{
-			Topic:           row[0],
-			TopicMaterialID: toInt(row[1]),
-			Answer:          row[2],
-			TopicType:       row[3],
-			Score:           toFloat64(row[4]),
-			Difficulty:      toInt(row[5]),
-			Chapter1:        row[6],
-			Chapter2:        row[7],
-			Label1:          row[8],
-			Label2:          row[9],
+			Topic:           v["topic"].(string),
+			TopicMaterialID: toInt(v["topic_material_id"].(string)),
+			Answer:          v["answer"].(string),
+			TopicType:       v["topic_type"].(string),
+			Score:           v["score"].(float64),
+			Difficulty:      int(v["difficulty"].(int64)),
+			Chapter1:        v["chapter_1"].(string),
+			Chapter2:        v["chapter_2"].(string),
+			Label1:          v["label_1"].(string),
+			Label2:          v["label_2"].(string),
 			UpdateTime:      time.Now(),
 		}
 		num, _ := c.mapper.InsertSingleQuestionBank(questionBank)

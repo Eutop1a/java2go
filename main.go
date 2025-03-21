@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/gob"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
@@ -8,6 +9,7 @@ import (
 	"java2go/config"
 	"java2go/controller"
 	"log"
+	"time"
 )
 
 func defineCorsConfig() cors.Config {
@@ -19,35 +21,14 @@ func defineCorsConfig() cors.Config {
 
 func main() {
 	r := gin.Default()
+	gob.Register(time.Time{})
 	store := cookie.NewStore([]byte("secret"))
-	//r.Use(cors.New(defineCorsConfig()))
+	// 设置会话过期时间为 1 小时
+	store.Options(sessions.Options{
+		MaxAge: 3600,
+	})
 	r.Use(sessions.Sessions("mysession", store))
 	r.Use(config.Cors())
-	//v1 := r.Group("/api/v1")
-	//{
-	//	v1.GET("/permission_denied", controller.PermissionDenied)
-	//	v1.GET("/getLoginStatus", controller.GetLoginStatus)
-	//	v1.POST("/login", controller.Login)
-	//	v1.POST("/logout", controller.Logout)
-	//	v1.POST("/registered", controller.Registered)
-	//	v1.GET("/getApplyUser", controller.GetApplyUser)
-	//	v1.GET("/getAllUser", controller.GetAllUser)
-	//	v1.GET("/deleteUser", controller.DeleteUser)
-	//	v1.GET("/passApply", controller.PassApply)
-	//	v1.GET("/deleteApply", controller.DeleteApply)
-	//
-	//	v1.GET("/getQuestionGenHistoriesByTestPaperUid", controller.GetQuestionGenHistoriesByTestPaperUid)
-	//	v1.GET("/deleteQuestionGenHistoryByTestPaperUid", controller.DeleteQuestionGenHistoryByTestPaperUid)
-	//	v1.POST("/updateQuestionGenHistory", controller.UpdateQuestionGenHistory)
-	//	v1.GET("/reExportTestPaper", controller.ReExportTestPaper)
-	//	v1.GET("/exportAnswer", controller.ExportAnswer)
-	//	v1.GET("/getAllQuestionLabels", controller.GetAllQuestionLabels)
-	//	v1.GET("/getDistinctChapter1", controller.GetDistinctChapter1)
-	//	v1.GET("/getDistinctChapter2", controller.GetDistinctChapter2)
-	//	v1.GET("/getChapter2ByChapter1", controller.GetChapter2ByChapter1)
-	//	v1.GET("/getDistinctLabel1", controller.GetDistinctLabel1)
-	//	v1.GET("/getDistinctLabel2", controller.GetDistinctLabel2)
-	//}
 
 	r.GET("/permission_denied", controller.PermissionDenied)
 	r.GET("/getLoginStatus", controller.GetLoginStatus)
