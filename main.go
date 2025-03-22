@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/gob"
-	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
@@ -11,13 +10,6 @@ import (
 	"log"
 	"time"
 )
-
-func defineCorsConfig() cors.Config {
-	c := cors.DefaultConfig()
-	c.AllowAllOrigins = true
-	c.AddAllowHeaders("authorization")
-	return c
-}
 
 func main() {
 	r := gin.Default()

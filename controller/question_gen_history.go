@@ -153,11 +153,12 @@ func ExportAnswer(c *gin.Context) {
 	for _, q := range questionBanks {
 		totalScore += q.Score
 		totalCount++
-		contents = fmt.Sprintf("%s%d、（本题%d分）%s\r\r", contents, totalCount, q.Score, q.Answer)
+		scoreStr := formatScore(q.Score)
+		contents = fmt.Sprintf("%s%d、（本题%s分）%s\r\r", contents, totalCount, scoreStr, q.Answer)
 	}
-
+	totalScoreStr := formatScore(totalScore)
 	mapData := map[string]string{
-		"total_score": fmt.Sprintf("%d", totalScore),
+		"total_score": fmt.Sprintf("%s", totalScoreStr),
 		"total_count": fmt.Sprintf("%d", totalCount),
 		"contents":    contents,
 	}
