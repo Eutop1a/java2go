@@ -24,7 +24,7 @@ func RandomSelectTopic(dataSource []entity.QuestionBank, targetDiff float64, sel
 		return result
 	}
 
-	// 预排序（保持与Java版相同逻辑，虽然实际不影响算法正确性）
+	// 预排序
 	sort.SliceStable(dataSource, func(i, j int) bool {
 		return dataSource[i].Difficulty < dataSource[j].Difficulty
 	})

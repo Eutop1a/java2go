@@ -13,6 +13,7 @@ require (
 	gorm.io/driver/mysql v1.5.7
 	gorm.io/gorm v1.25.12
 )
+replace github.com/chenzhuoyu/iasm v0.9.0 => github.com/cloudwego/iasm v0.2.0
 
 replace github.com/chenzhuoyu/iasm v0.9.1 => github.com/cloudwego/iasm v0.2.0
 
@@ -47,6 +48,7 @@ require (
 	github.com/richardlehane/msoleps v1.0.4 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.12 // indirect
+	github.com/volcengine/volc-sdk-golang v1.0.199 // indirect
 	github.com/xuri/efp v0.0.0-20240408161823-9ad904a10d6d // indirect
 	github.com/xuri/nfp v0.0.0-20240318013403-ab9948c2c4a7 // indirect
 	golang.org/x/arch v0.15.0 // indirect

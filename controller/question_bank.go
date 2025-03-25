@@ -72,7 +72,7 @@ func (c *QuestionBankController) SearchQuestionByTopic(ctx *gin.Context) {
 	topicType := ctx.Query("topicType")
 	keyword := ctx.Query("keyword")
 	questions, _ := c.mapper.SearchQuestionByTopic(topicType, keyword)
-	ctx.JSON(http.StatusOK, utils.Make200Resp(c.default200Resp, questions))
+	ctx.String(http.StatusOK, utils.Make200Resp(c.default200Resp, questions))
 }
 
 type QuestionBank struct {
@@ -264,9 +264,4 @@ func (c *QuestionBankController) GetEachScoreCount(ctx *gin.Context) {
 func toInt(s string) int {
 	i, _ := strconv.Atoi(s)
 	return i
-}
-
-func toFloat64(s string) float64 {
-	f, _ := strconv.ParseFloat(s, 64)
-	return f
 }

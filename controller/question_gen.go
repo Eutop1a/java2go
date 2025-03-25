@@ -45,6 +45,7 @@ func RandomSelect(c *gin.Context) {
 	result := query.Find(&randomQuestionBankList)
 	if result.Error != nil {
 		fmt.Printf("查询出错: %v\n", result.Error)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": result.Error})
 		return
 	}
 

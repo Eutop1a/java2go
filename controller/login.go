@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"fmt"
 	"java2go/entity"
 	"java2go/mapper"
 	"java2go/utils"
@@ -47,8 +48,14 @@ func Login(c *gin.Context) {
 	}
 	user.LastLogin = time.Now()
 	var userList []entity.User
-	mapper.DB.Where("username = ? AND password = ?", user.Username, user.Password).Find(&userList)
+	//mapper.DB.Where("username = ? AND password = ?", user.Username, user.Password).Find(&userList)
+	mapper.DB.Where("username = ?", user.Username).Find(&userList)
 	if len(userList) > 0 {
+		if !utils.DecPassword(user.Password, userList[0].Password) { // 密码错误
+			response := utils.Make403Resp("Permission denied")
+			c.String(http.StatusOK, response)
+			return
+		}
 		mapper.DB.Model(&user).Where("username = ?", user.Username).Update("last_login", user.LastLogin)
 		session := sessions.Default(c)
 		session.Set("username", userList[0].Username)
@@ -84,8 +91,10 @@ func Logout(c *gin.Context) {
 // 处理 /registered 请求
 func Registered(c *gin.Context) {
 	var user entity.User
-	if err := c.ShouldBindJSON(&user); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	var err error
+	if err = c.ShouldBindJSON(&user); err != nil {
+		c.String(http.StatusBadRequest, err.Error())
+		fmt.Println(err.Error())
 		return
 	}
 	var userByUsername []entity.User
@@ -93,14 +102,22 @@ func Registered(c *gin.Context) {
 	if len(userByUsername) > 0 {
 		response := utils.Make500Resp("用户名重复")
 		c.String(http.StatusInternalServerError, response)
+		fmt.Println(response)
 		return
 	}
 	user.LastLogin = time.Now()
 	user.Enable = 0
+	user.Password, err = utils.EncPassword(user.Password)
+	if err != nil {
+		c.String(http.StatusInternalServerError, err.Error())
+		fmt.Println(err.Error())
+		return
+	}
 	result := mapper.DB.Create(&user)
 	if result.Error != nil {
 		response := utils.Make500Resp("注册失败")
 		c.String(http.StatusInternalServerError, response)
+		fmt.Println(response)
 		return
 	}
 	response := utils.Make200Resp("Success", result.RowsAffected)
@@ -125,7 +142,8 @@ func GetApplyUser(c *gin.Context) {
 // 处理 /getAllUser 请求
 func GetAllUser(c *gin.Context) {
 	var allUser []entity.User
-	mapper.DB.Find(&allUser)
+	mapper.DB.Select("id, username, user_role, last_login, enable").
+		Find(&allUser)
 	response := utils.Make200Resp("Success", allUser)
 	c.String(http.StatusOK, response)
 }
